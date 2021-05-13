@@ -81,6 +81,38 @@ def wsd(genus, terms):
             max_len = len(overlap)
     return max_sense
 
+def average(d):
+    c = 0
+    somma = 0
+    for key in d:
+        somma += d[key]
+        c = c + 1
+    return somma/c
+
+
+def massimo(d):
+    max = 0
+    for key in d:
+        if d[key] > max:
+            max = d[key]
+    return max
+
+
+def remove_none(l):
+    res = []
+    for e in l:
+        if e is None:
+            continue
+        res.append(e)
+    return res
+
+
+def lch(senses):
+    lch = wn.synset(senses[0].name())
+    for i in range(1,len(senses)):
+        lch = wn.synset(lch.name()).lowest_common_hypernyms(wn.synset(senses[i].name()))
+    return lch
+
 
 def content_to_form(defn):
     terms = set()
@@ -96,31 +128,45 @@ def content_to_form(defn):
                 if t == w:
                     frequences[t] = frequences[t] + 1
     frequency_queue = Q.PriorityQueue()
+    l = 0
     for t in terms:
         frequency_queue.put((-frequences[t],t))
-    genus = frequency_queue.get()[1]
-    genus_sense = wsd(genus,terms)
-    t = frequency_queue.get()[1]
-    _print(frequency_queue)
-    for s in wn.synset(genus_sense.name()).hyponyms():
-        print('searching {} in {}'.format(t,s.name()))
-        print(search(t,s.name()))
+        l = l + 1
+    media = round(average(frequences)) + 1
+    m = massimo(frequences)
+    temp = frequency_queue
+    res = []
+    for i in range(len(temp.queue)):
+        e = frequency_queue.queue[i]
+        f = (e[0],e[1])
+        if not abs(f[0]) == m:
+            break
+        genus = f[1]
+        genus_sense = wsd(genus,terms)
+        #print(genus_sense.name())
+        for i in range(len(frequency_queue.queue)):
+            res.append(search(frequency_queue.get(i)[1],genus_sense.name()))
+        return remove_none(res)
+    #return lch(remove_none(res))
+
 
 
 def search(term,sense):
+    #print('search {} in {} hyponyms'.format(term,sense))
+    r = None
     for s in wn.synset(sense).hyponyms():
-        if term in s.name():
+        name = s.name()
+        if term in name or term in s.definition() or term in s.examples():
             return s
         else:
-            if search(term,s.name()) is None:
+            r = search(term,s.name())
+            if r is None:
                 continue
-    return None
-
-
-
-
+    return r
 
 defn = read_file()
-#for c in range(len(defn)):
-print(defn[0])
-content_to_form(defn[0])
+for i in range(8):
+    print('************ DEFINITION {}*************'.format(str(i+1)))
+    res = content_to_form(defn[i])
+    for s in res:
+        print(wn.synset(s.name()).lemmas()[0].name() + ': ' + wn.synset(s.name()).definition())
